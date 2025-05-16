@@ -1,1 +1,47 @@
-# Test
+name: PS4 STAGE2 Payload
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@main
+        with:
+          submodules: recursive # Ensure submodules are checked out
+
+      - name: Set execute permissions for scripts
+        run: chmod +x build.sh
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y make gcc zip
+
+      - name: Build PS4SDK
+        run: |
+          cd ps4-payload-sdk/libPS4
+          make clean && make
+         
+      - name: Build and package binaries
+        run: |
+          VERSIONS="505 672 700 701 702 750 751 755 800 801 803 850 852 900 903 904 950 951 960 1000 1001 1050 1070 1071 1100 1102 1150 1152 1200 1202"
+          for VERSION in $VERSIONS; do
+            ./build.sh $VERSION
+          done
+          zip ps4-pppwn.zip ps4-hen-*.bin
+
+      - name: Release for branch Multi-HEN
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create PPPWN-1.0${{ github.run_number }} ps4-pppwn.zip --target ${{ github.sha }} -t PPPWN-1.0${{ github.run_number }}
